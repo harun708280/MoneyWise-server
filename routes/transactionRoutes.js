@@ -1,20 +1,20 @@
 import express from "express";
 import { 
-  getTransactionsByEmail, 
+    
   getIncomeTransactionsByEmail, 
-  getExpenseTransactionsByEmail, 
+  getExpenseTransactionsByEmail,  
   addTransaction, 
-  updateTransaction 
+  updateTransaction, 
+  deleteTransaction
 } from "../controllers/transactionController.js";
 
 const router = express.Router();
 
-// ✅ নির্দিষ্ট user er email অনুযায়ী transaction filter
-router.get("/:email", getTransactionsByEmail);
+router.get("/:email", getIncomeTransactionsByEmail);
 router.get("/:email/income", getIncomeTransactionsByEmail);
-router.get("/:email/expenses", getExpenseTransactionsByEmail);
-
+router.get("/:email/expenses", getExpenseTransactionsByEmail); 
 router.post("/add", addTransaction);
 router.put("/edit/:id", updateTransaction);
+router.delete("/:id",deleteTransaction)
 
 export default router;
