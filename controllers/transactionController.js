@@ -1,6 +1,6 @@
 import Transaction from "../models/Transaction.js";
 import User from "../models/User.js";
-
+import mongoose from "mongoose"
 // 🔍 **User ID অনুযায়ী সব লেনদেন আনবে**
 export const getUserTransactions = async (req, res) => {
   try {
@@ -72,7 +72,9 @@ export const updateTransaction = async (req, res) => {
     res.status(500).json({ error: "Failed to update transaction" });
   }
 };
-// 🔍 **User Email অনুযায়ী শুধু ব্যয় (Expense) আনবে**
+
+
+
 export const getExpenseTransactionsByEmail = async (req, res) => {
     try {
       const { email } = req.params;
@@ -102,30 +104,88 @@ export const getIncomeTransactionsByEmail = async (req, res) => {
       }
   
       // Fetch expense transactions
-      const expenses = await Transaction.find({ user: user._id, }).sort({ date: -1 });
+      const expenses = await Transaction.find({ user: user._id,}).sort({ date: -1 });
       res.status(200).json(expenses);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch expense transactions" });
     }
   };
+
   
-  export const deleteTransaction = async (req, res) => {
-    try {
-      const { id } = req.params;
-  
-      // Check if the transaction exists
-      const transaction = await Transaction.findById(id);
-      if (!transaction) {
-        return res.status(404).json({ error: "Transaction not found" });
-      }
-  
-      // Delete the transaction
-      await Transaction.findByIdAndDelete(id);
-      
-      res.status(200).json({ message: "Transaction deleted successfully" });
-    } catch (error) {
-      console.error("❌ Error deleting transaction:", error);
-      res.status(500).json({ error: "Failed to delete transaction" });
+  // 🗑️ লেনদেন ডিলিট করবে
+export const deleteTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Transaction.findByIdAndDelete(id);
+    res.status(200).json({ message: "Transaction deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete transaction" });
+  }
+};
+
+// // 🔍 User Email অনুযায়ী শুধু আয় (Income) আনবে
+// export const getIncomeTransactionsByEmail = async (req, res) => {
+//   try {
+//     const { email } = req.params;
+
+//     // Validate user by email
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     // Fetch income transactions
+//     const incomes = await Transaction.find({ user: user._id, type: "income" }).sort({ date: -1 });
+//     res.status(200).json(incomes);
+//   } catch (error) {
+//     res.status(500).json({ error: "Failed to fetch income transactions" });
+//   }
+// };
+
+// 🔍 **নির্দিষ্ট Transaction আনবে**
+export const getSingleTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log("Fetching transaction with ID:", id); // ডিবাগ লগ
+
+    // ObjectId বৈধ কিনা যাচাই করুন
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log("Invalid transaction ID:", id); // ডিবাগ লগ
+      return res.status(400).json({ error: "Invalid transaction ID" });
     }
-  };
-  
+
+    const transaction = await Transaction.findById(id);
+    console.log("Transaction found:", transaction); // ডিবাগ লগ
+
+    if (!transaction) {
+      console.log("Transaction not found for ID:", id); // ডিবাগ লগ
+      return res.status(404).json({ error: "Transaction not found" });
+    }
+    res.status(200).json(transaction);
+  } catch (error) {
+    console.error("Error fetching transaction:", error); // ডিবাগ লগ
+    res.status(500).json({ error: "Failed to fetch transaction" });
+  }
+};
+
+export const getTransactionsByEmail = async (req, res) => {
+  try {
+      const { email } = req.params;
+      console.log("Fetching transactions for email:", email); // ডিবাগ লগ
+
+      // Validate user by email
+      const user = await User.findOne({ email });
+      if (!user) {
+          console.log("User not found for email:", email); // ডিবাগ লগ
+          return res.status(404).json({ error: "User not found" });
+      }
+
+      // Fetch all transactions (income and expense)
+      const transactions = await Transaction.find({ user: user._id }).sort({ date: -1 });
+      console.log("Transactions found:", transactions); // ডিবাগ লগ
+      res.status(200).json(transactions);
+  } catch (error) {
+      console.error("Error fetching transactions:", error); // ডিবাগ লগ
+      res.status(500).json({ error: "Failed to fetch transactions" });
+  }
+};
