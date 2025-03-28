@@ -4,6 +4,7 @@ import cors from "cors";
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
+import userSavingsRoutes from "./routes/userSavingsRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
 
 app.use("/api/users", userRoutes);
 app.use("/api/transactions", transactionRoutes); 
+app.use("/api/savings",userSavingsRoutes)
 
 app.get("/", (req, res) => {
     res.send("MongoDB Connected Successfully 🚀");
