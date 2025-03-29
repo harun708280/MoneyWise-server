@@ -80,8 +80,8 @@ export const getSavingGoalById = async (req, res) => {
 // Update a saving goal by ID
 export const updateSavingGoal = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { amount } = req.body; // যোগ করা টাকার পরিমাণ
+    const { id } = req.params; // req.params থেকে id ধরুন
+    const { amount } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid saving goal ID" });
