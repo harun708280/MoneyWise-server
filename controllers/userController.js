@@ -26,9 +26,9 @@ export const createUser = async (req, res) => {
 export const getUserByEmail = async (req, res) => {
     try {
         const { email } = req.params;
-        console.log("Fetching user with email:", email); // Debug log
+        console.log("Fetching user with email:", email); 
 
-        // MongoDB থেকে ইউজার খোঁজা
+       
         const user = await User.findOne({ email });
 
         if (!user) {

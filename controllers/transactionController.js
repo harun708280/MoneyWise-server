@@ -57,6 +57,49 @@ export const addTransaction = async (req, res) => {
   }
 };
 
+
+export const getIncomeByEmailAndTotal = async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    // Validate user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Fetch income transactions
+    const incomes = await Transaction.find({
+      user: user._id,
+      type: "income",
+    }).sort({ date: -1 });
+
+    // Calculate total income
+    const totalIncome = incomes.reduce(
+      (acc, transaction) => acc + transaction.amount,
+      0
+    );
+
+    const expenses = await Transaction.find({
+      user: user._id,
+      type: "expense",
+  }).sort({ date: -1 });
+  
+  // Calculate total expense
+  const totalExpense = expenses.reduce(
+      (acc, transaction) => acc + transaction.amount,
+      0
+  );
+
+  const walletTotal=totalIncome-totalExpense
+
+    res.status(200).json({ incomes, totalIncome,totalExpense,walletTotal });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch income transactions" });
+  }
+};
+
+
 // 🔄 **লেনদেন আপডেট করবে**
 export const updateTransaction = async (req, res) => {
   try {
@@ -126,24 +169,24 @@ export const deleteTransaction = async (req, res) => {
   }
 };
 
-// // 🔍 User Email অনুযায়ী শুধু আয় (Income) আনবে
-// export const getIncomeTransactionsByEmail = async (req, res) => {
-//   try {
-//     const { email } = req.params;
+// 🔍 User Email অনুযায়ী শুধু আয় (Income) আনবে
+export const getIncomeByEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
 
-//     // Validate user by email
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       return res.status(404).json({ error: "User not found" });
-//     }
+    // Validate user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-//     // Fetch income transactions
-//     const incomes = await Transaction.find({ user: user._id, type: "income" }).sort({ date: -1 });
-//     res.status(200).json(incomes);
-//   } catch (error) {
-//     res.status(500).json({ error: "Failed to fetch income transactions" });
-//   }
-// };
+    // Fetch income transactions
+    const incomes = await Transaction.find({ user: user._id, type: "income" }).sort({ date: -1 });
+    res.status(200).json(incomes);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch income transactions" });
+  }
+};
 
 // 🔍 **নির্দিষ্ট Transaction আনবে**
 export const getSingleTransaction = async (req, res) => {
@@ -202,3 +245,5 @@ export const getTransactionsByEmail = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch transactions" });
   }
 };
+
+

@@ -6,6 +6,9 @@ const transactionSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   category: { type: String, required: true },
   note: { type: String },
+  wallet: { type: Number, default: 0 },
+  totalIncome: { type: Number, default: 0 },
+  totalExpense: { type: Number, default: 0 },
   date: { type: Date, default: Date.now },
 }, { timestamps: true });
 
