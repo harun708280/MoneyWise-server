@@ -1,6 +1,7 @@
 import Transaction from "../models/Transaction.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
+import UserSavings from "../models/UserSavings.js";
 // 🔍 **User ID অনুযায়ী সব লেনদেন আনবে**
 export const getUserTransactions = async (req, res) => {
   try {
@@ -62,40 +63,66 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
   try {
     const { email } = req.params;
 
-    // Validate user by email
+    // ইউজার ইমেইল দ্বারা ভ্যালিডেট করুন
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Fetch income transactions
-    const incomes = await Transaction.find({
+    // সব লেনদেন আনুন
+    const transactions = await Transaction.find({
+      user: user._id,
+    }).sort({ date: -1 });
+
+     // আয়ের লেনদেন আনুন
+     const incomes = await Transaction.find({
       user: user._id,
       type: "income",
     }).sort({ date: -1 });
 
-    // Calculate total income
-    const totalIncome = incomes.reduce(
-      (acc, transaction) => acc + transaction.amount,
-      0
-    );
-
     const expenses = await Transaction.find({
       user: user._id,
       type: "expense",
-  }).sort({ date: -1 });
-  
-  // Calculate total expense
-  const totalExpense = expenses.reduce(
-      (acc, transaction) => acc + transaction.amount,
+    }).sort({ date: -1 });
+
+
+    // মোট আয় এবং খরচ গণনা করুন
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    transactions.forEach((transaction) => {
+      if (transaction.type === "income") {
+        totalIncome += transaction.amount;
+      } else if (transaction.type === "expense") {
+        totalExpense += transaction.amount;
+      }
+    });
+
+    // ওয়ালেট টোটাল গণনা করুন
+    const walletTotal = totalIncome - totalExpense;
+
+    // সেভিংস ডেটা আনুন
+    const savings = await UserSavings.find({ userId: user._id });
+
+    // মোট সেভিংস গণনা করুন
+    const totalSavings = savings.reduce(
+      (acc, saving) => acc + saving.currentAmount,
       0
-  );
+    );
 
-  const walletTotal=totalIncome-totalExpense
-
-    res.status(200).json({ incomes, totalIncome,totalExpense,walletTotal });
+    res.status(200).json({
+      transactions, // সব লেনদেন একসাথে
+      totalIncome,
+      totalExpense,
+      walletTotal,
+      savings,
+      totalSavings,
+      incomes,
+      expenses
+    });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch income transactions" });
+    console.error("Error fetching data:", error);
+    res.status(500).json({ error: "Failed to fetch data" });
   }
 };
 
