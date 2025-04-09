@@ -9,6 +9,7 @@ import {
     deleteTransaction,
     getTransactionsByEmail,
     getIncomeByEmailAndTotal,
+    getIncomeAndCostDataForChart,
 } from "../controllers/transactionController.js";
 
 const router = express.Router();
@@ -19,7 +20,7 @@ router.get("/:email/income", getIncomeTransactionsByEmail);
 router.get("/:email/expenses", getExpenseTransactionsByEmail); 
 router.post("/add", addTransaction);
 router.get("/income/total/:email", getIncomeByEmailAndTotal);
-
+router.get('/chart-data/:email', getIncomeAndCostDataForChart)
 router.put("/edit/:id", updateTransaction);
 
 

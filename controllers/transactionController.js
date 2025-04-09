@@ -72,7 +72,7 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
     // সব লেনদেন আনুন
     const transactions = await Transaction.find({
       user: user._id,
-    }).sort({ date: -1 });
+    }).sort({ _id: -1 });
 
      // আয়ের লেনদেন আনুন
      const incomes = await Transaction.find({
@@ -102,7 +102,7 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
     const walletTotal = totalIncome - totalExpense;
 
     // সেভিংস ডেটা আনুন
-    const savings = await UserSavings.find({ userId: user._id });
+    const savings = await UserSavings.find({ userId: user._id }).sort({ _id: -1 });
 
     // মোট সেভিংস গণনা করুন
     const totalSavings = savings.reduce(
@@ -274,3 +274,54 @@ export const getTransactionsByEmail = async (req, res) => {
 };
 
 
+export const getIncomeAndCostDataForChart = async (req, res) => {
+  try {
+      const { email } = req.params;
+
+      // ইউজার ইমেইল দ্বারা ভ্যালিডেট করুন
+      const user = await User.findOne({ email });
+      if (!user) {
+          return res.status(404).json({ error: "User not found" });
+      }
+
+      // সব লেনদেন আনুন
+      const transactions = await Transaction.find({
+          user: user._id,
+      }).sort({ date: 1 }); // তারিখ অনুসারে সাজানো
+
+      // চার্টের জন্য ডেটা প্রস্তুত করা
+      const chartData = transactions.reduce((acc, transaction) => {
+          const date = new Date(transaction.date);
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          const formattedDate = `${day}-${month}-${year}`; // DD-MM-YYYY ফরম্যাট
+
+          const amount = transaction.amount;
+          const type = transaction.type;
+
+          if (!acc[formattedDate]) {
+              acc[formattedDate] = { date: formattedDate, income: 0, expense: 0 };
+          }
+
+          if (type === "income") {
+              acc[formattedDate].income += amount;
+          } else if (type === "expense") {
+              acc[formattedDate].expense += amount;
+          }
+
+          return acc;
+      }, {});
+
+      const chartDataArray = Object.values(chartData).sort((a, b) => {
+          const [dayA, monthA, yearA] = a.date.split('-').map(Number);
+          const [dayB, monthB, yearB] = b.date.split('-').map(Number);
+          return new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB);
+      });
+
+      res.status(200).json(chartDataArray);
+  } catch (error) {
+      console.error("Error fetching chart data:", error);
+      res.status(500).json({ error: "Failed to fetch chart data" });
+  }
+};
