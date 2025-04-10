@@ -74,8 +74,8 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
       user: user._id,
     }).sort({ _id: -1 });
 
-     // আয়ের লেনদেন আনুন
-     const incomes = await Transaction.find({
+    // আয়ের লেনদেন আনুন
+    const incomes = await Transaction.find({
       user: user._id,
       type: "income",
     }).sort({ date: -1 });
@@ -84,7 +84,6 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
       user: user._id,
       type: "expense",
     }).sort({ date: -1 });
-
 
     // মোট আয় এবং খরচ গণনা করুন
     let totalIncome = 0;
@@ -110,15 +109,109 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
       0
     );
 
+    // বিভাগ অনুযায়ী আয় গণনা করুন
+    const incomeByCategory = {};
+    incomes.forEach((income) => {
+      if (income.category) {
+        if (incomeByCategory[income.category]) {
+          incomeByCategory[income.category] += income.amount;
+        } else {
+          incomeByCategory[income.category] = income.amount;
+        }
+      }
+    });
+
+    // বিভাগ অনুযায়ী খরচ গণনা করুন
+    const expenseByCategory = {};
+    expenses.forEach((expense) => {
+      if (expense.category) {
+        if (expenseByCategory[expense.category]) {
+          expenseByCategory[expense.category] += expense.amount;
+        } else {
+          expenseByCategory[expense.category] = expense.amount;
+        }
+      }
+    });
+
+    // বিভাগ অনুযায়ী আয়ের শতাংশ গণনা করুন
+    const incomePercentages = {};
+    for (const category in incomeByCategory) {
+      incomePercentages[category] =
+        (incomeByCategory[category] / totalIncome) * 100;
+    }
+
+    // বিভাগ অনুযায়ী খরচের শতাংশ গণনা করুন
+    const expensePercentages = {};
+    for (const category in expenseByCategory) {
+      expensePercentages[category] =
+        (expenseByCategory[category] / totalExpense) * 100;
+    }
+
+    const incomeColorCodes = [
+      { name: "Salary", color: "#084594" },
+      { name: "Freelancing", color: "#2171B5" },
+      { name: "Investments", color: "#4292C6" },
+      { name: "Business", color: "#6BAED6" },
+      { name: "Rental Income", color: "#9ECAE1" },
+      { name: "Dividends", color: "#C6DBEF" },
+      { name: "Gifts", color: "#DEEBF7" },
+      { name: "Grants", color: " #4C4CFF" },
+      { name: "Bonuses", color: "#1C7ED0" },
+      { name: "Family", color: "#67A4DA" },
+      { name: "Others", color: "#A0CBE8" },
+    ];
+
+    const expenseColorCodes = [
+      { name: "Food", color: "#FFF9C4" },   // Very Light Yellow-Orange
+      { name: "Shopping", color: "#FFF59D" }, // Light Yellow-Orange
+      { name: "Transport", color: "#FFEE58" }, // Light Medium Yellow-Orange
+      { name: "Health", color: "#FFEB3B" },   // Medium Yellow-Orange
+      { name: "Entertainment", color: "#FFC107" }, // Medium Dark Yellow-Orange
+      { name: "Education", color: "#FFCA28" },  // Dark Yellow-Orange
+      { name: "Bills", color: "#FFB300" },    // Darker Yellow-Orange
+      { name: "Subscriptions", color: "#FFA000" }, // Very Dark Yellow-Orange
+      { name: "Investment", color: "#FF8F00" },  // Intense Dark Yellow-Orange
+      { name: "Family", color: "#FF6F00" },    // Brownish Yellow-Orange
+      { name: "Others", color: "#FF6D00" },    // Very Dark Brownish Yellow-Orange
+    ];
+
+    // IncomeChartData অ্যারে তৈরি করুন
+    const IncomeChartData = Object.keys(incomePercentages).map((category) => {
+      const colorObj = incomeColorCodes.find((item) => item.name === category);
+      return {
+        browser: category,
+        visitors: incomePercentages[category],
+        fill: colorObj ? colorObj.color : "#808080",
+        amount: incomeByCategory[category],
+      };
+    });
+
+    // ExpenseChartData অ্যারে তৈরি করুন
+    const ExpenseChartData = Object.keys(expensePercentages).map((category) => {
+      const colorObj = expenseColorCodes.find((item) => item.name === category);
+      return {
+        browser: category,
+        visitors: expensePercentages[category],
+        fill: colorObj ? colorObj.color : "#808080",
+        amount: expenseByCategory[category],
+      };
+    });
+
     res.status(200).json({
-      transactions, // সব লেনদেন একসাথে
+      transactions,
       totalIncome,
       totalExpense,
       walletTotal,
       savings,
       totalSavings,
       incomes,
-      expenses
+      expenses,
+      incomeByCategory,
+      incomePercentages,
+      IncomeChartData,
+      expenseByCategory,
+      expensePercentages,
+      ExpenseChartData,
     });
   } catch (error) {
     console.error("Error fetching data:", error);
