@@ -4,7 +4,7 @@ import User from "../models/User.js"
 // ✅ User Create or Update (POST)
 export const createUser = async (req, res) => {
   try {
-      const { username, email, photo } = req.body; // Extract data from req.body
+      const {clerkId, username, email, photo  } = req.body; // Extract data from req.body
 
       let user = await User.findOne({ email });
 
