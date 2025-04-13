@@ -2,151 +2,92 @@ import Transaction from "../models/Transaction.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
 import UserSavings from "../models/UserSavings.js";
-// 🔍 **User ID অনুযায়ী সব লেনদেন আনবে**
+
+// Get all transactions for a user by userId
 export const getUserTransactions = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Validate user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Fetch transactions by user ID
-    const transactions = await Transaction.find({ user: userId }).sort({
-      date: -1,
-    });
+    const transactions = await Transaction.find({ user: userId }).sort({ date: -1 });
     res.status(200).json(transactions);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch transactions" });
   }
 };
 
+// Add a new transaction
 export const addTransaction = async (req, res) => {
   try {
-    console.log("📥 Received Transaction Data:", req.body);
-
     const { user, type, amount, category, note, date } = req.body;
 
     const existingUser = await User.findById(user);
     if (!existingUser) {
-      console.log("❌ User not found:", user);
       return res.status(404).json({ error: "User not found" });
     }
 
-    const newTransaction = new Transaction({
-      user,
-      type,
-      amount,
-      category,
-      note,
-      date,
-    });
-
+    const newTransaction = new Transaction({ user, type, amount, category, note, date });
     await newTransaction.save();
-
-    console.log("✅ Transaction Added:", newTransaction); // ✅ Debug Log
 
     res.status(201).json({
       message: "Transaction added successfully",
       transaction: newTransaction,
     });
   } catch (error) {
-    console.error("❌ Error adding transaction:", error);
     res.status(500).json({ error: "Failed to add transaction" });
   }
 };
 
-
+// Get total income, expense, savings, and chart data by user email
 export const getIncomeByEmailAndTotal = async (req, res) => {
   try {
     const { email } = req.params;
 
-    // ইউজার ইমেইল দ্বারা ভ্যালিডেট করুন
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // সব লেনদেন আনুন
-    const transactions = await Transaction.find({
-      user: user._id,
-    }).sort({ _id: -1 });
+    const transactions = await Transaction.find({ user: user._id }).sort({ _id: -1 });
+    const incomes = await Transaction.find({ user: user._id, type: "income" }).sort({ date: -1 });
+    const expenses = await Transaction.find({ user: user._id, type: "expense" }).sort({ date: -1 });
 
-    // আয়ের লেনদেন আনুন
-    const incomes = await Transaction.find({
-      user: user._id,
-      type: "income",
-    }).sort({ date: -1 });
-
-    const expenses = await Transaction.find({
-      user: user._id,
-      type: "expense",
-    }).sort({ date: -1 });
-
-    // মোট আয় এবং খরচ গণনা করুন
     let totalIncome = 0;
     let totalExpense = 0;
 
-    transactions.forEach((transaction) => {
-      if (transaction.type === "income") {
-        totalIncome += transaction.amount;
-      } else if (transaction.type === "expense") {
-        totalExpense += transaction.amount;
-      }
+    transactions.forEach((t) => {
+      if (t.type === "income") totalIncome += t.amount;
+      else if (t.type === "expense") totalExpense += t.amount;
     });
 
-    // ওয়ালেট টোটাল গণনা করুন
     const walletTotal = totalIncome - totalExpense;
 
-    // সেভিংস ডেটা আনুন
     const savings = await UserSavings.find({ userId: user._id }).sort({ _id: -1 });
+    const totalSavings = savings.reduce((acc, s) => acc + s.currentAmount, 0);
 
-    // মোট সেভিংস গণনা করুন
-    const totalSavings = savings.reduce(
-      (acc, saving) => acc + saving.currentAmount,
-      0
-    );
-
-    // বিভাগ অনুযায়ী আয় গণনা করুন
     const incomeByCategory = {};
-    incomes.forEach((income) => {
-      if (income.category) {
-        if (incomeByCategory[income.category]) {
-          incomeByCategory[income.category] += income.amount;
-        } else {
-          incomeByCategory[income.category] = income.amount;
-        }
-      }
+    incomes.forEach((i) => {
+      incomeByCategory[i.category] = (incomeByCategory[i.category] || 0) + i.amount;
     });
 
-    // বিভাগ অনুযায়ী খরচ গণনা করুন
     const expenseByCategory = {};
-    expenses.forEach((expense) => {
-      if (expense.category) {
-        if (expenseByCategory[expense.category]) {
-          expenseByCategory[expense.category] += expense.amount;
-        } else {
-          expenseByCategory[expense.category] = expense.amount;
-        }
-      }
+    expenses.forEach((e) => {
+      expenseByCategory[e.category] = (expenseByCategory[e.category] || 0) + e.amount;
     });
 
-    // বিভাগ অনুযায়ী আয়ের শতাংশ গণনা করুন
     const incomePercentages = {};
     for (const category in incomeByCategory) {
-      incomePercentages[category] =
-        (incomeByCategory[category] / totalIncome) * 100;
+      incomePercentages[category] = (incomeByCategory[category] / totalIncome) * 100;
     }
 
-    // বিভাগ অনুযায়ী খরচের শতাংশ গণনা করুন
     const expensePercentages = {};
     for (const category in expenseByCategory) {
-      expensePercentages[category] =
-        (expenseByCategory[category] / totalExpense) * 100;
+      expensePercentages[category] = (expenseByCategory[category] / totalExpense) * 100;
     }
 
+    
     const incomeColorCodes = [
       { name: "Salary", color: "#084594" },
       { name: "Freelancing", color: "#2171B5" },
@@ -162,20 +103,19 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
     ];
 
     const expenseColorCodes = [
-      { name: "Food", color: "#FFF9C4" },   // Very Light Yellow-Orange
-      { name: "Shopping", color: "#FFF59D" }, // Light Yellow-Orange
-      { name: "Transport", color: "#FFEE58" }, // Light Medium Yellow-Orange
-      { name: "Health", color: "#FFEB3B" },   // Medium Yellow-Orange
-      { name: "Entertainment", color: "#FFC107" }, // Medium Dark Yellow-Orange
-      { name: "Education", color: "#FFCA28" },  // Dark Yellow-Orange
-      { name: "Bills", color: "#FFB300" },    // Darker Yellow-Orange
-      { name: "Subscriptions", color: "#FFA000" }, // Very Dark Yellow-Orange
-      { name: "Investment", color: "#FF8F00" },  // Intense Dark Yellow-Orange
-      { name: "Family", color: "#FF6F00" },    // Brownish Yellow-Orange
-      { name: "Others", color: "#FF6D00" },    // Very Dark Brownish Yellow-Orange
+      { name: "Food", color: "#FFF9C4" },   
+      { name: "Shopping", color: "#FFF59D" }, 
+      { name: "Transport", color: "#FFEE58" }, 
+      { name: "Health", color: "#FFEB3B" },   
+      { name: "Entertainment", color: "#FFC107" }, 
+      { name: "Education", color: "#FFCA28" }, 
+      { name: "Bills", color: "#FFB300" },    
+      { name: "Subscriptions", color: "#FFA000" }, 
+      { name: "Investment", color: "#FF8F00" },  
+      { name: "Family", color: "#FF6F00" },    
+      { name: "Others", color: "#FF6D00" },    
     ];
 
-    // IncomeChartData অ্যারে তৈরি করুন
     const IncomeChartData = Object.keys(incomePercentages).map((category) => {
       const colorObj = incomeColorCodes.find((item) => item.name === category);
       return {
@@ -186,7 +126,6 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
       };
     });
 
-    // ExpenseChartData অ্যারে তৈরি করুন
     const ExpenseChartData = Object.keys(expensePercentages).map((category) => {
       const colorObj = expenseColorCodes.find((item) => item.name === category);
       return {
@@ -214,71 +153,51 @@ export const getIncomeByEmailAndTotal = async (req, res) => {
       ExpenseChartData,
     });
   } catch (error) {
-    console.error("Error fetching data:", error);
     res.status(500).json({ error: "Failed to fetch data" });
   }
 };
 
-
-// 🔄 **লেনদেন আপডেট করবে**
+// Update a transaction by ID
 export const updateTransaction = async (req, res) => {
   try {
     const { id } = req.params;
     const updatedData = req.body;
-    const updatedTransaction = await Transaction.findByIdAndUpdate(
-      id,
-      updatedData,
-      { new: true }
-    );
+    const updatedTransaction = await Transaction.findByIdAndUpdate(id, updatedData, { new: true });
     res.status(200).json(updatedTransaction);
   } catch (error) {
     res.status(500).json({ error: "Failed to update transaction" });
   }
 };
 
+// Get expense transactions by email
 export const getExpenseTransactionsByEmail = async (req, res) => {
   try {
     const { email } = req.params;
-    const { type } = req.query;
-
-    // Validate user by email
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Fetch expense transactions
-    const expenses = await Transaction.find({
-      user: user._id,
-      type: "expense",
-    }).sort({ date: -1 });
+    const expenses = await Transaction.find({ user: user._id, type: "expense" }).sort({ date: -1 });
     res.status(200).json(expenses);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch expense transactions" });
   }
 };
 
+// Get income transactions by email
 export const getIncomeTransactionsByEmail = async (req, res) => {
   try {
     const { email } = req.params;
-
-    // Validate user by email
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Fetch expense transactions
-    const expenses = await Transaction.find({ user: user._id }).sort({
-      date: -1,
-    });
+    const expenses = await Transaction.find({ user: user._id }).sort({ date: -1 });
     res.status(200).json(expenses);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch expense transactions" });
   }
 };
 
-// 🗑️ লেনদেন ডিলিট করবে
+// Delete a transaction by ID
 export const deleteTransaction = async (req, res) => {
   try {
     const { id } = req.params;
@@ -289,18 +208,13 @@ export const deleteTransaction = async (req, res) => {
   }
 };
 
-// 🔍 User Email অনুযায়ী শুধু আয় (Income) আনবে
+// Get only income transactions by email
 export const getIncomeByEmail = async (req, res) => {
   try {
     const { email } = req.params;
-
-    // Validate user by email
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Fetch income transactions
     const incomes = await Transaction.find({ user: user._id, type: "income" }).sort({ date: -1 });
     res.status(200).json(incomes);
   } catch (error) {
@@ -308,113 +222,75 @@ export const getIncomeByEmail = async (req, res) => {
   }
 };
 
-// 🔍 **নির্দিষ্ট Transaction আনবে**
+// Get a single transaction by ID
 export const getSingleTransaction = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("Fetching transaction with ID:", id); // ডিবাগ লগ
-
-    // ObjectId বৈধ কিনা যাচাই করুন
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      console.log("Invalid transaction ID:", id); // ডিবাগ লগ
       return res.status(400).json({ error: "Invalid transaction ID" });
     }
 
     const transaction = await Transaction.findById(id);
-    console.log("Transaction found:", transaction); // ডিবাগ লগ
+    if (!transaction) return res.status(404).json({ error: "Transaction not found" });
 
-    if (!transaction) {
-      console.log("Transaction not found for ID:", id); // ডিবাগ লগ
-      return res.status(404).json({ error: "Transaction not found" });
-    }
     res.status(200).json(transaction);
   } catch (error) {
-    console.error("Error fetching transaction:", error); // ডিবাগ লগ
     res.status(500).json({ error: "Failed to fetch transaction" });
   }
 };
 
+// Get transactions by email and optionally filter by type
 export const getTransactionsByEmail = async (req, res) => {
   try {
     const { email } = req.params;
     const { type } = req.query;
-    console.log("Fetching transactions for email:", email);
 
-    // Validate user by email
     const user = await User.findOne({ email });
-    if (!user) {
-      console.log("User not found for email:", email);
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    let transactions;
-    if (type) {
-      transactions = await Transaction.find({ user: user._id, type }).sort({
-        _id: -1,
-      });
-    } else {
-      transactions = await Transaction.find({ user: user._id }).sort({
-        _id: -1,
-      });
-    }
+    const filter = { user: user._id };
+    if (type) filter.type = type;
 
-    console.log("Transactions found:", transactions);
+    const transactions = await Transaction.find(filter).sort({ _id: -1 });
     res.status(200).json(transactions);
   } catch (error) {
-    console.error("Error fetching transactions:", error);
     res.status(500).json({ error: "Failed to fetch transactions" });
   }
 };
 
-
+// Get income and expense data for chart by email
 export const getIncomeAndCostDataForChart = async (req, res) => {
   try {
-      const { email } = req.params;
+    const { email } = req.params;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-      // ইউজার ইমেইল দ্বারা ভ্যালিডেট করুন
-      const user = await User.findOne({ email });
-      if (!user) {
-          return res.status(404).json({ error: "User not found" });
+    const transactions = await Transaction.find({ user: user._id }).sort({ date: 1 });
+
+    const chartData = transactions.reduce((acc, t) => {
+      const date = new Date(t.date);
+      const formattedDate = `${String(date.getDate()).padStart(2, '0')}-${String(
+        date.getMonth() + 1
+      ).padStart(2, '0')}-${date.getFullYear()}`;
+
+      if (!acc[formattedDate]) {
+        acc[formattedDate] = { date: formattedDate, income: 0, expense: 0 };
       }
 
-      // সব লেনদেন আনুন
-      const transactions = await Transaction.find({
-          user: user._id,
-      }).sort({ date: 1 }); // তারিখ অনুসারে সাজানো
+      if (t.type === "income") acc[formattedDate].income += t.amount;
+      else if (t.type === "expense") acc[formattedDate].expense += t.amount;
 
-      // চার্টের জন্য ডেটা প্রস্তুত করা
-      const chartData = transactions.reduce((acc, transaction) => {
-          const date = new Date(transaction.date);
-          const day = String(date.getDate()).padStart(2, '0');
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const year = date.getFullYear();
-          const formattedDate = `${day}-${month}-${year}`; // DD-MM-YYYY ফরম্যাট
+      return acc;
+    }, {});
 
-          const amount = transaction.amount;
-          const type = transaction.type;
+    const chartDataArray = Object.values(chartData).sort((a, b) => {
+      const [dayA, monthA, yearA] = a.date.split('-').map(Number);
+      const [dayB, monthB, yearB] = b.date.split('-').map(Number);
+      return new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB);
+    });
 
-          if (!acc[formattedDate]) {
-              acc[formattedDate] = { date: formattedDate, income: 0, expense: 0 };
-          }
-
-          if (type === "income") {
-              acc[formattedDate].income += amount;
-          } else if (type === "expense") {
-              acc[formattedDate].expense += amount;
-          }
-
-          return acc;
-      }, {});
-
-      const chartDataArray = Object.values(chartData).sort((a, b) => {
-          const [dayA, monthA, yearA] = a.date.split('-').map(Number);
-          const [dayB, monthB, yearB] = b.date.split('-').map(Number);
-          return new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB);
-      });
-
-      res.status(200).json(chartDataArray);
+    res.status(200).json(chartDataArray);
   } catch (error) {
-      console.error("Error fetching chart data:", error);
-      res.status(500).json({ error: "Failed to fetch chart data" });
+    res.status(500).json({ error: "Failed to fetch chart data" });
   }
 };

@@ -39,13 +39,13 @@ export const getSavingsGoalsByEmail = async (req, res) => {
   try {
     const { email } = req.params;
 
-    // Find the user by email
+    
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Find all saving goals for the user
+    
     const savingsGoals = await UserSavings.find({ userId: user._id });
     res.status(200).json(savingsGoals);
   } catch (error) {
@@ -59,7 +59,7 @@ export const getSavingGoalById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validate if the ID is a valid ObjectId
+    
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid saving goal ID" });
     }
@@ -80,7 +80,7 @@ export const getSavingGoalById = async (req, res) => {
 // Update a saving goal by ID
 export const updateSavingGoal = async (req, res) => {
   try {
-    const { id } = req.params; // req.params থেকে id ধরুন
+    const { id } = req.params; 
     const { amount } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -93,18 +93,18 @@ export const updateSavingGoal = async (req, res) => {
       return res.status(404).json({ message: "Saving goal not found" });
     }
 
-    // লক্ষ্যমাত্রা পূরণ হলে টাকা যোগ করা বন্ধ করুন
+   
     if (savingGoal.currentAmount >= savingGoal.targetAmount) {
       return res.status(400).json({ message: "Target amount already reached" });
     }
 
-    // নতুন লেনদেন যোগ করুন
+ 
     savingGoal.transactions.push({ amount });
 
-    // currentAmount আপডেট করুন
+    
     savingGoal.currentAmount += amount;
 
-    // লক্ষ্যমাত্রা অতিক্রম করলে, currentAmount লক্ষ্যমাত্রার সমান করুন
+   
     if (savingGoal.currentAmount > savingGoal.targetAmount) {
       savingGoal.currentAmount = savingGoal.targetAmount;
     }
