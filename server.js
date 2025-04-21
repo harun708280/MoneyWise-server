@@ -17,6 +17,7 @@ app.use(cors({
     origin: ["https://work-wave-by-harun.vercel.app"], 
     credentials: true,
 }));
+// hello Updated
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
